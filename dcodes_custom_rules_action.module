@@ -1,0 +1,566 @@
+<?php
+
+use Drupal\node\NodeInterface;
+use \Drupal\node\Entity\Node;
+use \Drupal\user\Entity\User;
+use \Drupal\filter\Entity\FilterFormat;
+
+
+
+function dcodes_custom_rules_action_node_view(array &$build, \Drupal\Core\Entity\EntityInterface $node, \Drupal\Core\Entity\Display\EntityViewDisplayInterface $display, $view_mode) {    
+    
+     
+}
+
+
+/**
+ * Implements hook_ENTITY_TYPE_update() for node.
+ * https://api.drupal.org/api/drupal/core%21core.api.php/group/hooks/8.8.x
+ */
+
+function dcodes_custom_rules_action_node_update(Drupal\Core\Entity\EntityInterface $node) {
+    //drupal_set_message(t('dewanman node updated id = '.$node->id()), 'status');
+    if ($node->bundle() == 'ct_properties' and $node->isPublished()) {
+        $pid_mail = $node->id();
+        /* email code start */
+            /* Prepare Proprty Email Data START */
+            if(isset($pid_mail)){
+                $property_node_obj = Node::load($pid_mail);
+                if (!is_null($property_node_obj)) {
+                    $langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+                    $prop_nid = $property_node_obj->id();
+                    $prop_title = $property_node_obj->getTitle();  // Title
+                    $prop_author_uid = $property_node_obj->getOwnerId();
+                    $prop_author_uid_obj = \Drupal\user\Entity\User::load($prop_author_uid);
+                    if (!is_null($prop_author_uid)) {
+                    $prop_author_name = $prop_author_uid_obj->getDisplayName();  // Author Name
+                    $prop_author_f_name = $prop_author_uid_obj->field_first_name->value;  // Author First Name
+                    $prop_author_email = $prop_author_uid_obj->getEmail();  // Author Email
+                    }
+                    $prop_created_date_raw = $property_node_obj->getCreatedTime();  
+                    $prop_created_date = \Drupal::service('date.formatter')->format($prop_created_date_raw, 'm/d/Y h:i A');  // Created Date
+                    $prop_url = \Drupal::service('path.alias_manager')->getAliasByPath('/node/'.$prop_nid, $langcode);  // URL
+                    // CCK fields START 
+                    $is_property_verified = 0;
+                    foreach ($property_node_obj->getFields() as $name => $field) {
+                        $entity_reference_fields_arr = array(
+                            'field_property_status'
+                        );
+                        if(in_array($name,$entity_reference_fields_arr)){;
+                            $this_ref_fld_ids_data_arr = $property_node_obj->get($name)->referencedEntities();
+                            foreach($this_ref_fld_ids_data_arr as $entity) {                                
+                                if($entity->ID()=='15'){
+                                    $is_property_verified = 1;
+                                }
+                            }
+                        }
+                        else{
+                           // drupal_set_message(t($field->getString()), 'status');
+                        }
+                    }
+                    // CCK fields END
+                    if($is_property_verified==1){
+                        //drupal_set_message(t('Yes property is verified, send email'), 'status');
+                        // If property is verified send email START 
+                        require_once getcwd()."/Mail-1.4.1/Mail-1.4.1/Mail.php";
+                        $from = "BasDev Admin<admin@bas-dev.co>";
+                        $to = $prop_author_email; // REAL AUTHOR EMAIL
+        
+                        //$to = "hkfdewanhkf@gmail.com";
+                        //$to = "zohar@bookaspace.co,hkfdewanhkf@gmail.com";
+        
+                        $cc  = 'bulk@bookaspace.co';
+                        $bcc = 'bulk@bookaspace.co';
+                        $email_recipients = $to.", ".$cc.", ".$bcc;
+                        $subject = "A property/space from your account has been approved";
+                        if($langcode=='en'){
+                            $body =
+                                '<html>
+                                <body>
+                                
+                                Hello '.$prop_author_f_name.',<br><br>
+        
+                                A property/space from your account has been approved and now is available for sale in our marketplace.<br><br>
+        
+                                <a href="https://www.bookaspace.co/'.$prop_url.'">'.$prop_title.'</a><br><br>
+        
+                                You can edit and manage your properties & spaces in your account under <a href="https://www.bookaspace.co/personal_area/my_properties">My properties</a> page.<br>
+                                Please note: Upon renting the property , it is important to make sure that the contact person is available at all times.<br><br>
+        
+                                Need help? We are here for your service.<br>
+                                Learn more about how you can <a href="https://www.bookaspace.co/contact_us">contact us</a>.<br><br>
+        
+                                Book a Space Team<br>
+                                <a href="http://www.bookaspace.co/">www.bookaspace.co</a><br>
+        
+                                </body>
+                                </html>'
+                            ; 
+                        }
+                        else if($langcode=='he'){
+                            $body =
+                            '<html>
+                            <body>
+                            
+                            שלום '.$prop_author_f_name.',<br><br>
+        
+                            חדר בחשבונך אושר וכעת הוא מוצג וזמין עבור הגולשים שלנו<br><br>
+        
+                            <a href="https://www.bookaspace.co.il/'.$prop_url.'">'.$prop_title.'</a><br><br>
+        
+                            <br><a href="https://bookaspace.co.il/personal_area/my_properties">הנכסים שלי</a> את כל הנכסים והחדרים ניתן לראות ולנהל באזור האישי בעמוד<br>
+                            לתשומת לבך: עם השכרת הנכס לשימוש הגולשים, חשוב לדאוג שאיש הקשר שמונה לנכס יהיה זמין בכל עת<br><br>
+        
+                            <br>צריכים עזרה? אנחנו כאן בכדי לעזור<br>
+                            <a href="https://www.bookaspace.co.il/contact_us">ליצור איתנו קשר</a>מוזמנים<br><br>
+        
+                            צוות בוק א ספייס<br>
+                            <a href="http://www.bookaspace.co.il/">www.bookaspace.co.il</a><br>
+        
+                            </body>
+                            </html>'
+                            ; 
+                        }
+                        $host = "karklas.serveriai.lt";
+                        $username = "mkgamta";
+                        $password = "Hunterweb2020";
+        
+                        /* $host = "172.105.82.43";
+                        $username = "root";
+                        $password = "g7S/v^u4z$!"; */
+                        
+                        $headers = array (
+                        'From' => $from,
+                        'To' => $to,
+                        'Subject' => $subject,
+                        'MIME-Version' => '1.0',
+                        'Content-type' => 'text/html; charset=iso-8859-1',
+                        'Cc'            => $cc,
+                        'bcc'            => $bcc
+                        );
+                        $smtp = Mail::factory('smtp',
+                        array ('host' => $host,
+                            'auth' => true,
+                            'username' => $username,
+                            'password' => $password));
+                        
+                        $mail = $smtp->send($email_recipients, $headers, $body);
+                        
+                        if (PEAR::isError($mail)) {
+                        //echo("<p>" . $mail->getMessage() . "</p>");
+                        } else {
+                        //echo("<p>New Property Creation Message Successfully Sent To: ".$to."</p>");
+                        }
+                    }
+                    else{
+                       // drupal_set_message(t('NO NO property is NOT verified, do not send email'), 'error');
+                    }
+                    // If property is verified send email END 
+                }
+            }
+            /* Prepare updated VERIFIED Email Data END */   
+        /* email code end */
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // property updated VERIFIED end here
+}
+
+
+/**
+ * Implements hook_ENTITY_TYPE_insert() for node.
+ * https://api.drupal.org/api/drupal/core%21core.api.php/group/hooks/8.8.x
+ * Property create AND RESERVATION CONFIRMATION(CREATED) START HERE 
+ */
+function dcodes_custom_rules_action_node_insert(NodeInterface $node) {
+  if ($node->bundle() == 'ct_properties' and $node->isPublished()) {
+        $pid_mail = $node->id();
+        /* email code start */
+            /* Prepare Proprty Email Data START */
+            if(isset($pid_mail)){
+                $property_node_obj = Node::load($pid_mail);
+                if (!is_null($property_node_obj)) {
+                    $langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+                    
+                    //drupal_set_message(t('Test status messages here'), 'status');
+                    $prop_nid = $property_node_obj->id();
+                    $prop_title = $property_node_obj->getTitle();  // Title
+                    $prop_author_uid = $property_node_obj->getOwnerId();
+                    $prop_author_uid_obj = \Drupal\user\Entity\User::load($prop_author_uid);
+                    if (!is_null($prop_author_uid)) {
+                    $prop_author_name = $prop_author_uid_obj->getDisplayName();  // Author Name
+                    $prop_author_f_name = $prop_author_uid_obj->field_first_name->value;  // Author First Name
+                    $prop_author_email = $prop_author_uid_obj->getEmail();  // Author Email
+                    }
+                    $prop_created_date_raw = $property_node_obj->getCreatedTime();  
+                    $prop_created_date = \Drupal::service('date.formatter')->format($prop_created_date_raw, 'm/d/Y h:i A');  // Created Date
+                    $prop_url = \Drupal::service('path.alias_manager')->getAliasByPath('/node/'.$prop_nid, $langcode);  // URL
+
+                    require_once getcwd()."/Mail-1.4.1/Mail-1.4.1/Mail.php";
+                    $from = "BasDev Admin<admin@bas-dev.co>";
+                    $to = $prop_author_email; // REAL AUTHOR EMAIL
+
+                    //$to = "hkfdewanhkf@gmail.com";
+                    //$to = "zohar@bookaspace.co,hkfdewanhkf@gmail.com";
+
+                    $cc  = 'bulk@bookaspace.co';
+                    $bcc = 'bulk@bookaspace.co';
+                    $email_recipients = $to.", ".$cc.", ".$bcc;
+                    $subject = "A new property has been registered";
+                    if($langcode=='en'){
+                        $body =
+                            '<html>
+                            <body>
+                            
+                            Hello '.$prop_author_f_name.',<br><br>
+
+                            A new property/space has been added to your account<br><br>
+
+                            <a href="https://www.bookaspace.co/'.$prop_url.'">'.$prop_title.'</a><br><br>
+
+                            You can edit and manage your properties in your account under <a href="https://www.bookaspace.co/personal_area/my_properties">My properties</a> page.<br>
+                            Please note: Upon renting the property, it is important to make sure that the contact person is available at all times.<br><br>
+
+                            Need help? We are here for your service.<br>
+                            Learn more about how you can <a href="https://www.bookaspace.co/contact_us">contact us</a>.<br><br>
+
+                            Book a Space Team<br>
+                            <a href="http://www.bookaspace.co/">www.bookaspace.co</a><br>
+
+                            </body>
+                            </html>'
+                        ; 
+                    }
+                    else if($langcode=='he'){
+                        $body =
+                        '<html>
+                        <body>
+                        
+                        שלום '.$prop_author_f_name.',<br><br>
+
+                        נכס חדש נוסף לחשבונך<br><br>
+
+                        <a href="https://www.bookaspace.co.il/'.$prop_url.'">'.$prop_title.'</a><br><br>
+
+                        <br><a href="https://bookaspace.co.il/personal_area/my_properties">הנכסים שלי</a> ניתן לצפות ולנהל את כל הנכסים באזור האישי בעמוד<br>
+                        לתשומת לבך: עם השכרת הנכס לשימוש הגולשים, חשוב לדאוג שאיש הקשר שמונה לנכס יהיה זמין בכל עת<br><br>
+
+                        <br>צריכים עזרה? אנחנו כאן בכדי לעזור<br>
+                        <a href="https://www.bookaspace.co.il/contact_us">ליצור איתנו קשר</a>מוזמנים<br><br>
+
+                        צוות בוק א ספייס<br>
+                        <a href="http://www.bookaspace.co.il/">www.bookaspace.co.il</a><br>
+
+                        </body>
+                        </html>'
+                        ; 
+                    }
+                    $host = "karklas.serveriai.lt";
+                    $username = "mkgamta";
+                    $password = "Hunterweb2020";
+
+                    /* $host = "172.105.82.43";
+                    $username = "root";
+                    $password = "g7S/v^u4z$!"; */
+                    
+                    $headers = array (
+                    'From' => $from,
+                    'To' => $to,
+                    'Subject' => $subject,
+                    'MIME-Version' => '1.0',
+                    'Content-type' => 'text/html; charset=iso-8859-1',
+                    'Cc'            => $cc,
+                    'bcc'            => $bcc
+                    );
+                    $smtp = Mail::factory('smtp',
+                    array ('host' => $host,
+                        'auth' => true,
+                        'username' => $username,
+                        'password' => $password));
+                    
+                    $mail = $smtp->send($email_recipients, $headers, $body);
+                    
+                    if (PEAR::isError($mail)) {
+                    //echo("<p>" . $mail->getMessage() . "</p>");
+                    } else {
+                    //echo("<p>New Property Creation Message Successfully Sent To: ".$to."</p>");
+                    }
+                }
+            }
+            /* property CREATED end here END */   
+        /* email code end */
+    }
+    // RESERVATION CREATION START
+    if ($node->bundle() == 'ct_reservations' and $node->isPublished()) {
+            $pid_mail = $node->id(); // Reservation NID
+            /* email code start */
+            /* Prepare RESERVATION CONFIRMATION Email Data START */
+            if(isset($pid_mail)){
+                $property_node_obj = Node::load($pid_mail);
+                if (!is_null($property_node_obj)) {
+                    $r_m_data_res_num = $node->id(); // // (1) Reservation # 
+                    $langcode = \Drupal::languageManager()->getCurrentLanguage()->getId();
+                    //drupal_set_message(t('Test status messages here'), 'status');
+                    $prop_nid = $property_node_obj->id();
+                    $prop_title = $property_node_obj->getTitle();  // Title
+                    $prop_author_uid = $property_node_obj->getOwnerId();
+                    $prop_author_uid_obj = \Drupal\user\Entity\User::load($prop_author_uid);
+                    if (!is_null($prop_author_uid)) {
+                    $prop_author_name = $prop_author_uid_obj->getDisplayName();  // Reservation Creator (Guest) Name
+                    $prop_author_f_name = $prop_author_uid_obj->field_first_name->value;  // (2) Reservation Creator (Guest) First Name
+                    $prop_author_email = $prop_author_uid_obj->getEmail();  // (3) Reservation Creator (Guest) Email
+                    }
+                    $prop_created_date_raw = $property_node_obj->getCreatedTime();  
+                    $prop_created_date = \Drupal::service('date.formatter')->format($prop_created_date_raw, 'm/d/Y h:i A');  // Created Date
+                    $prop_url = \Drupal::service('path.alias_manager')->getAliasByPath('/node/'.$prop_nid, $langcode);  // URL
+                    // CCK fields START , RESERVATION CREATE,  RESERVATION CONTENT TYPE  $property_node_obj
+                    foreach ($property_node_obj->getFields() as $name => $field) {
+                        $entity_reference_fields_arr = array(
+                            'field_reservation_space'
+                        );
+                        if(in_array($name,$entity_reference_fields_arr)){
+                            $this_ref_fld_ids_data_arr = $property_node_obj->get($name)->referencedEntities();
+                            foreach($this_ref_fld_ids_data_arr as $entity) {
+                                $r_m_data_space_nid = $entity->ID(); //  Space NID
+                                $r_m_data_space_name = $entity->label(); // (4) Space Name
+                                // SPACE DATA in PROPERTY RESERVATION, START
+                                if(isset($r_m_data_space_nid)){
+                                    $space_node_obj = Node::load($r_m_data_space_nid);
+                                    if (!is_null($space_node_obj)) {
+                                        $r_m_data_space_author_uid = $space_node_obj->getOwnerId(); // SPACE AUTHOR (reservation HOST) UID
+                                        $r_m_data_space_author_uid_obj = \Drupal\user\Entity\User::load($r_m_data_space_author_uid);
+                                        if (!is_null($r_m_data_space_author_uid_obj)) {
+                                            $r_m_data_space_author_name = $r_m_data_space_author_uid_obj->getDisplayName();  // SPACE AUTHOR (reservation HOST) name
+                                            $r_m_data_space_author_f_name = $r_m_data_space_author_uid_obj->field_first_name->value;  // (5) SPACE AUTHOR (reservation HOST) First Name
+                                            $r_m_data_space_author_email = $r_m_data_space_author_uid_obj->getEmail();  //  (6) SPACE AUTHOR (reservation HOST) Email
+                                        }
+                                        // GET RESERVATION ADDRESS START
+                                        $r_m_data_space_property_id_arr = $space_node_obj->get('field_spaces_properties')->referencedEntities();
+                                        foreach($r_m_data_space_property_id_arr as $entity_spc_prop) {
+                                            $r_m_data_space_property_id = $entity_spc_prop->ID(); //  Space Property NID
+                                            if(isset($r_m_data_space_property_id)){
+                                                $r_m_data_space_property_id_obj = Node::load($r_m_data_space_property_id);
+                                                $r_m_data_space_property_name = $r_m_data_space_property_id_obj->getTitle(); // (9) Reservation Property Name
+                                                // GET Reservation Property Owner Details START
+                                                $r_m_data_space_property_author_uid = $r_m_data_space_property_id_obj->getOwnerId(); // Property AUTHOR (OWNER) UID
+                                                $r_m_data_space_property_author_uid_obj = \Drupal\user\Entity\User::load($r_m_data_space_property_author_uid);
+                                                if (!is_null($r_m_data_space_property_author_uid_obj)) {
+                                                    $r_m_data_space_property_author_name = $r_m_data_space_property_author_uid_obj->getDisplayName();  // Property AUTHOR name
+                                                    $r_m_data_space_property_author_f_name = $r_m_data_space_property_author_uid_obj->field_first_name->value;  // (10) Property AUTHOR First Name
+                                                    $r_m_data_space_property_author_email = $r_m_data_space_property_author_uid_obj->getEmail();  //  (11) Property AUTHOR Email
+                                                }
+                                                // GET Reservation Property Owner Details START
+
+                                                // Address START
+                                                if (isset($r_m_data_space_property_id_obj->field_property_address)) {
+                                                    if (count($r_m_data_space_property_id_obj->field_property_address->getValue()) > 0) {
+                                                        $address['country_code'] = $r_m_data_space_property_id_obj->field_property_address->getValue()[0]['country_code'];
+                                                        if (\Drupal::service('country_manager')->getList()[$address['country_code']]) {
+                                                            $address['country_name'] = \Drupal::service('country_manager')->getList()[$address['country_code']]->__toString();
+                                                        }
+                                                        $address['administrative_area'] = $r_m_data_space_property_id_obj->field_property_address->getValue()[0]['administrative_area'];
+                                                        $address['locality'] = $r_m_data_space_property_id_obj->field_property_address->getValue()[0]['locality'];
+                                                        $address['address_line1'] = $r_m_data_space_property_id_obj->field_property_address->getValue()[0]['address_line1'];
+                                                    
+                                                    }
+                                                }
+                                                $r_m_data_space_property_address = $address['address_line1'].', '.$address['locality'].', '.$address['country_name']; //$r_m_data_space_property_id_obj->get('field_property_address')->getString(); // (7) Reservation ADDRESS 
+                                                // Address END
+                                                
+                                            }
+
+                                        }
+                                        // GET RESERVATION ADDRESS START
+                                    }
+                                }
+                                //  SPACE DATA in PROPERTY RESERVATION, END
+
+                            }
+                        }
+                        else if($name=='field_reservation_time'){ // 
+                            $r_m_data_reservation_time_date_start = "";
+                            $r_m_data_reservation_time_date_end = "";
+                            // GET RESERVATION TIME START
+                            if(isset($property_node_obj->field_reservation_time)){
+                                $reservation_time_tid = $property_node_obj->field_reservation_time->getValue()[0]['target_id'];
+                                $arr_times = get_paragraph_times_in_date_and_time_with_format($reservation_time_tid);
+                                $str_date = $arr_times['start_date'];
+                                $end_date = $arr_times['end_date'];
+                                $str_start_time = $arr_times['start_time'];
+                                $str_end_time = $arr_times['end_time'];
+                                $r_m_data_reservation_time_date_start = $str_date.", " . $str_start_time . "-" . $str_end_time; // (8) RESERVATION TIME
+                                $r_m_data_reservation_time_date_end = $end_date.", " . $str_start_time . "-" . $str_end_time; // (8) RESERVATION TIME
+                            }
+                            // GET RESERVATION TIME END
+                        }
+                    }
+                    // CCK fields END , RESERVATION CREATE,  RESERVATION CONTENT TYPE
+
+
+                /*  echo 
+                    'Res#'.$r_m_data_res_num."<br><br>".
+                    'Guest Name: '.$prop_author_f_name."<br><br>".
+                    'Guest Email: '.$prop_author_email."<br><br>".
+                    'Space Name: '.$r_m_data_space_name."<br><br>".
+                    'Host Name: '.$r_m_data_space_author_f_name."<br><br>".
+                    'Host Email: '.$r_m_data_space_author_email."<br><br>".
+                    'Reservation Address: nid='.$r_m_data_space_property_id.'==='.$r_m_data_space_property_address."<br><br>".
+                    'Res time start end date: '.$r_m_data_reservation_time_date_start/$r_m_data_reservation_time_date_end."<br><br>".
+                    'Res Property name '.$r_m_data_space_property_name."<br><br>".
+                    'Res Property owner name'.$r_m_data_space_property_author_f_name."<br><br>".
+                    'Res Property owner email'.$r_m_data_space_property_author_email."<br><br>"; */
+
+                    require_once getcwd()."/Mail-1.4.1/Mail-1.4.1/Mail.php";
+                    $from = "BasDev Admin<admin@bas-dev.co>";
+                    
+
+                    // Reservation : OWNER FINAL Details START
+                        //  $r_m_data_space_property_author_f_name
+                        //  $r_m_data_space_property_author_email
+                    // Reservation : OWNER FINAL Details END
+
+
+                    // Reservation : HOST FINAL Details START
+                        //  $r_m_data_space_author_f_name
+                        //  $r_m_data_space_author_email
+                    // Reservation : HOST FINAL Details END
+
+                    // Reservation : GUEST FINAL Details START
+                        //  $prop_author_f_name
+                        //  $prop_author_email
+                    // Reservation : GUST FINAL Details END
+
+                    $to = $prop_author_email;
+
+                    //$to = "hkfdewanhkf@gmail.com";
+                    //$to = "zohar@bookaspace.co,hkfdewanhkf@gmail.com";
+
+                    $cc  = $r_m_data_space_author_email;
+                    $bcc = 'bulk@bookaspace.co';
+
+
+                    $email_recipients = $to.", ".$cc.", ".$bcc;
+                    
+                    if($langcode=='en'){
+                        $subject = "Reservation # ".$r_m_data_res_num." has been registered.";
+                        $body =
+                            '<html>
+                            <body>
+                            
+                            Hello '.$prop_author_f_name.',<br><br>
+
+                            Reservation # '.$r_m_data_res_num.' has been registered.<br><br>
+
+                            Final approval will be provided by the property owner, by email or phone.<br><br>
+
+                            <b>Reservation details:</b><br><br>
+
+                            Property name: '.$r_m_data_space_property_name.'<br>
+                            Space name: '.$r_m_data_space_name.'<br>
+                            Address: '.$r_m_data_space_property_address.'<br>
+                            Start date & time: '.$r_m_data_reservation_time_date_start.'<br>
+                            End date & time: '.$r_m_data_reservation_time_date_end.'<br><br>
+
+                            Full reservation details is available at http://www.bookaspace.co/personal-area/reservations<br><br>
+
+                            Have a great experience,<br><br>
+                            
+                            Book a Space Team<br>
+                            <a href="http://www.bookaspace.co/">www.bookaspace.co</a><br>
+
+                            <a href="https://www.bookaspace.co/contact_us">Contact us</a><br>
+                            <a href="http://www.bookaspace.co/help/faq">Help center</a>
+
+                            </body>
+                            </html>'
+                        ; 
+                    }
+                    else if($langcode=='he'){
+                        $subject = "הזמנה # ".$r_m_data_res_num." התקבלה.";
+                        $body =
+                            '<html>
+                            <body>
+                            
+                            שלום  '.$prop_author_f_name.',<br><br>
+
+                            הזמנה # '.$r_m_data_res_num.' התקבלה.<br><br>
+
+                            אישור סופי יתקבל ישירות מבעל הנכס, במייל או בטלפון.<br><br>
+
+                            <b>פרטי ההזמנה:</b><br><br>
+
+                            שם הנכס: '.$r_m_data_space_property_name.'<br>
+                            שם החלל: '.$r_m_data_space_name.'<br>
+                            כתובת: '.$r_m_data_space_property_address.'<br>
+                            התחלה: '.$r_m_data_reservation_time_date_start.'<br>
+                            סיום: '.$r_m_data_reservation_time_date_end.'<br><br>
+
+                            פרטי ההזמנה המלאים נמצאים באזור האישי בקישור  http://www.bookaspace.co.il/personal-area/reservations<br><br>
+
+                            אנו מאחלים לך חוויה טובה, <br><br>
+                            
+                            צוות בוק א ספייס<br>
+                            <a href="http://www.bookaspace.co.il/">www.bookaspace.co.il</a><br>
+
+                            <a href="https://www.bookaspace.co.il/contact_us">צור קשר</a><br>
+                            <a href="http://www.bookaspace.co.il/help/faq">עזרה</a>
+
+                            </body>
+                            </html>'
+                        ; 
+                    }
+                    $host = "karklas.serveriai.lt";
+                    $username = "mkgamta";
+                    $password = "Hunterweb2020";
+
+                    /* $host = "172.105.82.43";
+                    $username = "root";
+                    $password = "g7S/v^u4z$!"; */
+                    
+                    $headers = array (
+                    'From' => $from,
+                    'To' => $to,
+                    'Subject' => $subject,
+                    'MIME-Version' => '1.0',
+                    'Content-type' => 'text/html; charset=iso-8859-1',
+                    'Cc'            => $cc,
+                    'bcc'            => $bcc
+                    );
+                    $smtp = Mail::factory('smtp',
+                    array ('host' => $host,
+                        'auth' => true,
+                        'username' => $username,
+                        'password' => $password));
+                    
+                    $mail = $smtp->send($email_recipients, $headers, $body); // UNCOMMENT TO MAKE EMAIL SENDING WORK
+                    
+                    
+                    if (PEAR::isError($mail)) {
+                    //echo("<p>" . $mail->getMessage() . "</p>");
+                    } else {
+                    //echo("<p>New Property Creation Message Successfully Sent To: ".$to."</p>");
+                    }
+                }
+            }
+            /* RESERVATION CONFIRMATION(CREATED) end here END */   
+        /* email code end */
+    }
+    // RESERVATION CREATION END
+
+   // Property create AND RESERVATION CONFIRMATION(CREATED) START HERE 
+}

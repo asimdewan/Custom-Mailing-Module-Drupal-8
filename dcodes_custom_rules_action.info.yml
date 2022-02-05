@@ -1,0 +1,5 @@
+name: Dcodes Custom Rules Action
+description: Custom Module By Dewan For Bookaspace.co
+package: Dcodes
+type: module
+core: 8.x
